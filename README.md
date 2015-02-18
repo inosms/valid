@@ -17,7 +17,7 @@ The primary usage is to provide a simple language with valid syntax for gene exp
 `ta` = `tail a` (empty results in empty)
 
 `a` is append: 
-`abc` = `b ++ c
+`abc` = `b ++ c`
 
 `p` is append positive 
 `pa` = `1:a`
@@ -31,7 +31,7 @@ The primary usage is to provide a simple language with valid syntax for gene exp
 `eabc` = `if a is empty then b else c`
 
 `j` is jump:
-`ja..` = `jump to (evaluate a an interpret as number) with parameters (evaluate rest of gene as long as needed for parameters for destination jump gene)
+`ja..` = `jump to (evaluate a an interpret as number) with parameters (evaluate rest of gene as long as needed for parameters for destination jump gene)`
 
 `c` is create empty:
 `c` = `[]`
