@@ -13,10 +13,15 @@ type Genome = [Gene]
 
 toGene :: String -> Gene
 toGene (x:xs) 
-	| isAlpha x = (GeneOperator x) : toGene xs
+	| isAlpha x ||  x == '+' = (GeneOperator x) : toGene xs
 	| otherwise = (GeneParameter (digitToInt x)) : toGene xs
 toGene [] = []
 tg = toGene
+
+geneToString :: Gene -> String 
+geneToString ((GeneOperator x):xs) = x:(geneToString xs)
+geneToString ((GeneParameter x):xs) = (show x)++(geneToString xs)
+geneToString [] = []
 
 toBitstring :: String -> Bitstring
 toBitstring ('0':xs) = L:(toBitstring xs)
@@ -67,7 +72,11 @@ getCorrectParameter paramNumber parameters
 -- the second parameter is a list of parameters for the genome
 evaluate :: Genome -> [Bitstring] -> Bitstring
 evaluate [] _ = []
-evaluate genome@(x:xs) params = fst( evaluateGene genome x params )
+evaluate genome@(x:xs) params = fst3 (evaluateGene (-1) genome x params )
+
+evaluateWithDepthRestriction :: Integer -> Genome -> [Bitstring] -> Bitstring
+evaluateWithDepthRestriction _ [] _ = []
+evaluateWithDepthRestriction depth genome@(x:xs) params = fst3 (evaluateGene depth genome x params )
 
 bitstringTail :: Bitstring -> Bitstring
 bitstringTail [] = []
@@ -78,35 +87,50 @@ getParamsCount [] = 0
 getParamsCount ((GeneParameter x):xs) = max (x+1) (getParamsCount xs)
 getParamsCount ((GeneOperator _):xs) = getParamsCount xs 
 
-evaluateGene :: Genome -> Gene -> [Bitstring] -> (Bitstring,Gene)
-evaluateGene genome ((GeneOperator '+'):xs) parameters = evaluateWrapper genome (\[x,y] -> plus x y) 2 xs parameters
-evaluateGene genome ((GeneOperator 'i'):xs) parameters = evaluateWrapper genome (\[x,y,z] -> if null x || head x == L then z else y) 3 xs parameters
-evaluateGene genome ((GeneOperator 'e'):xs) parameters = evaluateWrapper genome (\[x,y,z] -> if null x then y else z) 3 xs parameters
-evaluateGene genome ((GeneOperator 't'):xs) parameters = evaluateWrapper genome (bitstringTail.head) 1 xs parameters
-evaluateGene genome ((GeneOperator 'p'):xs) parameters = evaluateWrapper genome ((R:).head) 1 xs parameters
-evaluateGene genome ((GeneOperator 'r'):xs) parameters = evaluateWrapper genome (reverse.head) 1 xs parameters
-evaluateGene genome ((GeneOperator 'n'):xs) parameters = evaluateWrapper genome ((L:).head) 1 xs parameters
-evaluateGene genome ((GeneOperator 'a'):xs) parameters = evaluateWrapper genome (concat) 2 xs parameters
-evaluateGene genome ((GeneOperator 'c'):xs) parameters = ([],xs)
-evaluateGene genome ((GeneOperator 'j'):xs) parameters = evaluateWrapper genome (\x->fst( evaluateGene genome destGene x )) destGeneParamsCount destGeneRest parameters
-	where (destGeneIndex,destGeneRest) = evaluateWrapper genome (head) 1 xs parameters
+fst3 :: (a,b,c) -> a
+fst3 (a,b,c) = a
+
+decreaseDepth :: Integer -> Integer
+decreaseDepth n
+	| n <= 0 = 0
+	| otherwise = n -1
+
+-- evaluates a gene with a maximum of depth jumps to other genes to prevent infinite loops
+-- if depth is -1 there is no maximum
+evaluateGene :: Integer -> Genome -> Gene -> [Bitstring] -> (Bitstring,Gene,Integer)
+evaluateGene 0 _ gene _ = ([],gene,0)
+evaluateGene depth genome ((GeneOperator '+'):xs) parameters = evaluateWrapper depth genome (\[x,y] -> plus x y) 2 xs parameters
+evaluateGene depth genome ((GeneOperator 'i'):xs) parameters = evaluateWrapper depth genome (\[x,y,z] -> if null x || head x == L then z else y) 3 xs parameters
+evaluateGene depth genome ((GeneOperator 'e'):xs) parameters = evaluateWrapper depth genome (\[x,y,z] -> if null x then y else z) 3 xs parameters
+evaluateGene depth genome ((GeneOperator 't'):xs) parameters = evaluateWrapper depth genome (bitstringTail.head) 1 xs parameters
+evaluateGene depth genome ((GeneOperator 'p'):xs) parameters = evaluateWrapper depth genome ((R:).head) 1 xs parameters
+evaluateGene depth genome ((GeneOperator 'r'):xs) parameters = evaluateWrapper depth genome (reverse.head) 1 xs parameters
+evaluateGene depth genome ((GeneOperator 'n'):xs) parameters = evaluateWrapper depth genome ((L:).head) 1 xs parameters
+evaluateGene depth genome ((GeneOperator 'a'):xs) parameters = evaluateWrapper depth genome (concat) 2 xs parameters
+evaluateGene depth genome ((GeneOperator 'c'):xs) parameters = ([],xs,depth)
+evaluateGene depth genome ((GeneOperator 'j'):xs) parameters = (resultOtherGeneBS,restParam,resultOtherGeneDepth  )--evaluateWrapper depthRest genome (\x->fst3( evaluateGene (depthRest-1) genome destGene x )) destGeneParamsCount destGeneRest parameters
+	where (destGeneIndex,destGeneRest,depthRest) = evaluateWrapper depth genome (head) 1 xs parameters
 	      destGeneIndexInt = (binaryToInt destGeneIndex) `mod` (length genome)
 	      destGene = genome !! destGeneIndexInt
 	      destGeneParamsCount = getParamsCount destGene
-evaluateGene genome ((GeneParameter x):xs) parameters = (getCorrectParameter x parameters, xs)
-evaluateGene genome [] _ = ([],[])
+	      (resultParam,restParam,restDepth) = evaluateNTimes depthRest genome destGeneRest parameters destGeneParamsCount
+	      (resultOtherGeneBS,resultOtherGeneGene,resultOtherGeneDepth) = evaluateGene (decreaseDepth restDepth) genome destGene resultParam
 
-evaluateWrapper :: Genome -> ([Bitstring]->Bitstring) -> Int -> Gene -> [Bitstring] -> (Bitstring,Gene)
-evaluateWrapper genome func paramsCount gene params = (func results,rest)
-				where (results,rest) = evaluateNTimes genome gene params paramsCount
+evaluateGene depth genome ((GeneParameter x):xs) parameters = (getCorrectParameter x parameters, xs,depth)
+evaluateGene depth genome [] _ = ([],[],depth)
+
+evaluateWrapper :: Integer -> Genome -> ([Bitstring]->Bitstring) -> Int -> Gene -> [Bitstring] -> (Bitstring,Gene,Integer)
+evaluateWrapper depth genome func paramsCount gene params = (func results,rest,restDepth)
+				where (results,rest,restDepth) = evaluateNTimes depth genome gene params paramsCount
 
 
--- takes a gene, parameters and an integer which specifies how often the rest after
+-- takes a depth gene, parameters and an integer which specifies how often the rest after
 -- one successfull evaluation is evaluated
 -- the result of the evaluations are then given back
-evaluateNTimes :: Genome -> Gene -> [Bitstring] -> Int -> ([Bitstring],Gene)
-evaluateNTimes genome xs parameters 1 = ([value1],rest1)
-				where (value1,rest1) = evaluateGene genome xs parameters 
-evaluateNTimes genome xs parameters n = (value1:resultValues,resultRest)
-				where (value1,rest1) = evaluateGene genome xs parameters 
-				      (resultValues,resultRest) = evaluateNTimes genome rest1 parameters (n-1)
+evaluateNTimes :: Integer -> Genome -> Gene -> [Bitstring] -> Int -> ([Bitstring],Gene,Integer)
+evaluateNTimes depth genome xs parameters 0 = ([],xs,depth)
+evaluateNTimes depth genome xs parameters 1 = ([value1],rest1,depth1)
+				where (value1,rest1,depth1) = evaluateGene depth genome xs parameters 
+evaluateNTimes depth genome xs parameters n = (value1:resultValues,resultRest,restultDepth)
+				where (value1,rest1,depth1) = evaluateGene depth genome xs parameters 
+				      (resultValues,resultRest,restultDepth) = evaluateNTimes depth1 genome rest1 parameters (n-1)
