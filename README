@@ -1,0 +1,11 @@
++ is plus
+i is if: if { evaluates to 1 at beginning } then { evaluate } else { evaluate }
+t is tail: t [] = [] //  t (x:xs) = xs
+a is append: a xs ys = xs ++ ys	
+p is pos append p xs = R:xs
+n is neg append n xs = L:xs
+r is reverse
+e is empty: if {evaluates to empty} then {evaluate} else {evaluate}
+j is jump: jump to {evaluates to gene index} with parameters {evaluate to parameters}
+c is create empty
+0-9 is a parameter, up to now not more parameters are supported
