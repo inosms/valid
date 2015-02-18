@@ -4,12 +4,17 @@ import Test.QuickCheck
 import Data.List
 import Data.Char
 
+
 data Bit = L | R deriving (Eq, Show)
 type Bitstring = [Bit]
 
-data GeneComponent = GeneOperator Char | GeneParameter Int deriving Show
+data GeneComponent = GeneOperator Char | GeneParameter Int
 type Gene = [GeneComponent]
 type Genome = [Gene]
+
+instance Show GeneComponent where
+	show (GeneParameter x) = show x
+	show (GeneOperator x) = [x]
 
 toGene :: String -> Gene
 toGene (x:xs) 
