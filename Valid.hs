@@ -43,6 +43,7 @@ _plus xs [] L = xs
 _plus [] ys R = _plus ys [R] L
 _plus [] ys L = ys
 
+
 binaryToInt :: Bitstring -> Int
 binaryToInt bitstring = sum [if (bitstring !! x) == R then 2^x else 0|x<-[0..((length bitstring)-1)]]
 
